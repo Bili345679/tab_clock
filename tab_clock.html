@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>制表符时钟</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            flex-direction: column;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+        }
+
+        .line {
+            margin: 0;
+            padding: 0;
+        }
+
+        p {
+            height: 21px;
+            padding: 0;
+            margin: 0;
+        }
+
+        .space {
+            width: 9.6px;
+            display: inline-block;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="line" line="0"></div>
+    <div class="line" line="1"></div>
+</body>
+<script src="./char.js"></script>
+<script>
+    let formatted_char = []
+    char_type = "tall"
+    const space_between_char = 1
+    // char_type = "short"
+    // 格式化
+    Object.keys(char).forEach(char_type => {
+        formatted_char[char_type] = {}
+        Object.keys(char[char_type]).forEach(each_char => {
+            formatted_char[char_type][each_char] = char[char_type][each_char].replaceAll(" ", "<span class='space'>&nbsp;</span>").substring(1).split("\n")
+        })
+    });
+    const line_height = formatted_char[char_type][0].length
+
+    // 调试 start
+    // Object.keys(formatted_char[char_type]).forEach(each_tall_char_key => {
+    //     const each_char = formatted_char.tall[each_tall_char_key]
+    // });
+
+    // print_line("0:1 2-3456789", 0)
+    // print_line("2024 - 12 - 25", 0)
+    // print_line("18 : 14 : 34", 1)
+    // 调试 end
+
+    function print_line(str, line_num) {
+        let line_content = Array(line_height).fill("")
+        for (let index = 0; index < str.length; index++) {
+            const each_char = str[index]
+            const char_line_content = formatted_char[char_type][each_char]
+            char_line_content.forEach((each_char_line_content, each_char_line_index) => {
+                if (index == 0) {
+                    line_content[each_char_line_index] += "<p>"
+                }
+                line_content[each_char_line_index] += each_char_line_content
+                if (index == str.length - 1) {
+                    line_content[each_char_line_index] += "</p>"
+                } else {
+                    line_content[each_char_line_index] += "<span class='space'>&nbsp;</span>".repeat(space_between_char)
+                }
+            })
+        }
+        document.querySelector(`.line[line="${line_index}"]`).innerHTML = line_content.join("")
+    }
+
+    // setInterval(() => {
+    //     const data_time = get_date_time()
+    //     print_line(`${data_time.year} - ${data_time.month} - ${data_time.day}`, 0)
+    //     print_line(`${data_time.hour} : ${data_time.minute} : ${data_time.second}`, 1)
+    // }, 100);
+
+    // 时间戳
+    function timestamp() {
+        return new Date().getTime()
+    }
+
+    // 日期时间
+    function get_date_time() {
+        function pad(string, length = 2) {
+            return string.toString().padStart(length, "0")
+        }
+        const today = new Date()
+        const now = new Date()
+        return {
+            year: pad(today.getFullYear()),
+            month: pad(today.getMonth() + 1),
+            day: pad(today.getDate()),
+            hour: pad(now.getHours()),
+            minute: pad(now.getMinutes()),
+            second: pad(now.getSeconds()),
+        }
+    }
+
+    // last_char 最后完整显示的字符串
+    // new_char 未完整显示的最新字符串
+    // refresh_start 刷新开始时间戳
+    // refresh_frame_time 帧时长
+    // refresh_frame_num 当前刷新帧数量
+    let line_data = []
+    for (let line_index = 0; line_index < 2; line_index++) {
+        const line_char_length = line_index == 0 ? 14 : 12
+        line_data.push(
+            {
+                line_char_length: line_char_length,
+                last_char: Array(line_char_length).fill("0"),
+                new_char: Array(line_char_length).fill(false),
+                refresh_start: Array(line_char_length).fill(timestamp()),
+                refresh_frame_time: Array(line_char_length).fill(0),
+                refresh_frame_num: Array(line_char_length).fill(0),
+            })
+    }
+
+    // 更新行数据
+    function update_line(line, index, char, refresh_time = 1) {
+        const frame_count = line_height + 1
+        line_data[line].new_char[index] = char
+        line_data[line].refresh_start[index] = timestamp()
+        line_data[line].refresh_frame_time[index] = refresh_time * 1000 / frame_count
+        line_data[line].refresh_frame_num[index] = 0
+    }
+    // 刷新所有行显示
+    function refresh_all_line() {
+        line_data.forEach((line, index) => {
+            refresh_line(index)
+        });
+    }
+
+    // 刷新单行显示
+    function refresh_line(line_index) {
+        const this_line_data = line_data[line_index]
+
+        let line_content = Array(line_height).fill("")
+
+        for (let char_index = 0; char_index < this_line_data.line_char_length; char_index++) {
+            let show_char_line_content = []
+            if (this_line_data.new_char[char_index] === false) {
+                const each_char = this_line_data.last_char[char_index]
+                show_char_line_content = formatted_char[char_type][each_char]
+            } else {
+                // 举例开始经过时间
+                const refresh_spend_time = timestamp() - this_line_data.refresh_start[char_index]
+                // 计算当前处于刷新帧数
+                const new_frame_num = Math.min(line_height,
+                    this_line_data.refresh_frame_time[char_index] == 0 ?
+                        line_height + 1 :
+                        parseInt(refresh_spend_time / this_line_data.refresh_frame_time[char_index])
+                )
+
+                // 每行显示内容
+                const last_char_line_content = formatted_char[char_type][this_line_data.last_char[char_index]]
+                const new_char_line_content = formatted_char[char_type][this_line_data.new_char[char_index]]
+                // 拼接前后字符
+                for (let show_char_line_index = 0; show_char_line_index < line_height; show_char_line_index++) {
+                    if (new_frame_num + show_char_line_index < line_height) {
+                        show_char_line_content.push(last_char_line_content[show_char_line_index + new_frame_num])
+                    } else if (new_frame_num + show_char_line_index == line_height) {
+                        show_char_line_content.push(formatted_char[char_type][" "][0])
+                    } else {
+                        show_char_line_content.push(new_char_line_content[new_frame_num + show_char_line_index - line_height - 1])
+                    }
+                }
+                if (new_frame_num >= line_height) {
+                    line_data[line_index].last_char[char_index] = line_data[line_index].new_char[char_index]
+                    line_data[line_index].new_char[char_index] = false
+                }
+            }
+
+            show_char_line_content.forEach((each_show_char_line_content, each_char_line_index) => {
+                if (char_index == 0) {
+                    line_content[each_char_line_index] += "<p>"
+                }
+                line_content[each_char_line_index] += each_show_char_line_content
+                if (each_char_line_index == this_line_data.line_char_length - 1) {
+                    line_content[each_char_line_index] += "</p>"
+                } else {
+                    line_content[each_char_line_index] += "<span class='space'>&nbsp;</span>".repeat(space_between_char)
+                }
+            })
+        }
+        document.querySelector(`.line[line="${line_index}"]`).innerHTML = line_content.join("")
+    }
+
+    const data_time_val_index = {
+        "year": { line: 0, index: 0 },
+        "month": { line: 0, index: 7 },
+        "day": { line: 0, index: 12 },
+        "hour": { line: 1, index: 0 },
+        "minute": { line: 1, index: 5 },
+        "second": { line: 1, index: 10 },
+    }
+    let last_date_time = get_date_time()
+    // 初始字符串
+    let last_date_time_str = [
+        `${last_date_time.year} - ${last_date_time.month} - ${last_date_time.day}`,
+        `${last_date_time.hour} : ${last_date_time.minute} : ${last_date_time.second}`
+    ]
+    last_date_time_str.forEach((line, line_index) => {
+        for (let index = 0; index < line.length; index++) {
+            update_line(line_index, index, line[index], 1)
+        }
+    })
+    refresh_all_line()
+
+    setInterval(() => {
+        const new_date_time = get_date_time()
+        Object.keys(last_date_time).forEach(key => {
+            if (last_date_time[key] != new_date_time[key]) {
+                for (let char_index = 0; char_index < last_date_time[key].length; char_index++) {
+                    if (last_date_time[key][char_index] != new_date_time[key][char_index]) {
+                        update_line(data_time_val_index[key].line, data_time_val_index[key].index + char_index, new_date_time[key][char_index])
+                    }
+                }
+            }
+            last_date_time[key] = new_date_time[key]
+        })
+        refresh_all_line()
+    }, 10)
+</script>
+
+</html>
