@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <title>制表符字符生成器</title>
+    <style>
+        body {
+            width: 100vw;
+            height: 100vh;
+            padding: 0;
+            margin: 0;
+            flex-direction: column;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+        }
+
+        .row {
+            display: flex;
+        }
+
+        .block {
+            width: 20px;
+            height: 20px;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+        .block:hover{
+            background-color: #999;
+        }
+
+        .cell {
+            display: inline-block;
+            border: 0.5px solid #999;
+            cursor: pointer;
+        }
+
+        .floating {
+            position: absolute;
+            border: 1px solid #000;
+            background: #fff;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <div>
+        <label for="rows">行数：</label>
+        <input type="number" id="rows" min="1" value="8">
+        <br>
+        <label for="columns">列数：</label>
+        <input type="number" id="columns" min="1" value="8">
+        <br>
+        <button id="generate">生成矩阵</button>
+        <input type="text" id="char_name">
+        <button id="copy">复制矩阵</button>
+    </div>
+    <div id="array">
+    </div>
+    <div>
+        <textarea id="textarea" rows="10" cols="30" readonly></textarea>
+    </div>
+</body>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    $(document).ready(function () {
+        const charMap = {
+            'q': '┏', 'w': '┳', 'e': '┓',
+            'a': '┣', 'd': '┫',
+            'z': '┗', 'x': '┻', 'c': '┛',
+            'r': '━', 'f': '┃', 's': '╋', 'v': ' ',
+        };
+        const chars = Object.values(charMap); // 生成悬浮标签时用到的字符数组
+        const positions = [
+            { top: -37, left: -21 }, { top: -37, left: 0 }, { top: -37, left: 21 },
+            { top: -16, left: -21 }, { top: -16, left: 21 },
+            { top: 5, left: -21 }, { top: 5, left: 0 }, { top: 5, left: 21 },
+            { top: -58, left: 0 }, { top: -16, left: -42 }, { top: 26, left: 0 }, { top: -16, left: 42 },
+        ];
+
+        let activeCell = null;
+        let initialText = " ";
+        let keyTriggered = false;
+
+        function build_array() {
+            const rows = parseInt($("#rows").val());
+            const columns = parseInt($("#columns").val());
+            createCellMatrix(rows, columns);
+        }
+
+        function createCellMatrix(rows, columns) {
+            const array = $("#array");
+            const currentRows = array.children(".row").length;
+            const currentColumns = currentRows > 0 ? array.children(".row").first().children(".cell").length : 0;
+
+            // 保留现有的 cell 数据
+            const cellData = [];
+            array.children(".row").each(function () {
+                const rowData = [];
+                $(this).children(".cell").each(function () {
+                    rowData.push($(this).text());
+                });
+                cellData.push(rowData);
+            });
+
+            // 清空当前的 array
+            array.empty();
+
+            // 创建新的 cell 矩阵
+            for (let i = 0; i < rows; i++) {
+                const row = $("<div>").addClass("row");
+                for (let j = 0; j < columns; j++) {
+                    const cell = $("<p>").addClass("cell").addClass("block");
+                    // 如果是在原有的范围内，保留数据
+                    if (i < currentRows && j < currentColumns) {
+                        cell.text(cellData[i][j]);
+                    } else {
+                        cell.text(" ");
+                    }
+                    row.append(cell);
+                }
+                array.append(row);
+            }
+
+            updateTextarea(); // 更新 textarea 内容
+        }
+
+        function updateTextarea() {
+            let content = "";
+            $("#array .row").each(function () {
+                $(this).children(".cell").each(function () {
+                    // content += $(this).text();
+
+                    if ($(this).text() == " ") {
+                        content += "  ";
+                    } else {
+                        content += $(this).text();
+                    }
+                });
+                content += "\n";
+            });
+            $("#textarea").val(content);
+        }
+
+        $(document).on("mousedown", "p.cell", function (event) {
+            event.preventDefault();
+            const cell = $(this);
+            const cellPosition = cell.position();
+            initialText = cell.text(); // 保存初始文字
+            keyTriggered = false; // 重置键盘触发标志
+
+            // 创建悬浮标签
+            positions.forEach((pos, index) => {
+                const floating = $("<p>").addClass("floating").addClass("block").text(chars[index]);
+                floating.css({
+                    top: cellPosition.top + pos.top - 0.5,
+                    left: cellPosition.left + pos.left - 0.5
+                });
+                floating.mouseup(function () {
+                    cell.text($(this).text());
+                    $(".floating").remove();
+                    updateTextarea(); // 更新 textarea 内容
+                });
+                $("body").append(floating);
+            });
+
+            // 设置当前激活的 cell
+            activeCell = cell;
+
+            // 在 cell 上松开鼠标时恢复初始文字
+            cell.mouseup(function () {
+                if (!keyTriggered) {
+                    cell.text(initialText);
+                    $(".floating").remove();
+                    cell = null; // 清除激活状态
+                    updateTextarea(); // 更新 textarea 内容
+                }
+            });
+        });
+
+        $(document).on("keydown", function (event) {
+            if (activeCell && charMap[event.key]) {
+                activeCell.text(charMap[event.key]);
+                activeCell = null; // 清除激活状态
+                keyTriggered = true; // 设置键盘触发标志
+                $(".floating").remove();
+                updateTextarea(); // 更新 textarea 内容
+            }
+        });
+
+        build_array();
+        $("#generate").click(function () {
+            build_array();
+        });
+        $("#copy").click(function () {
+            const textarea = $("#textarea");
+            const copy_str = textarea.val();
+            const char_name = $("#char_name").val();
+            const new_copy_str = `"${char_name}":"\n${copy_str}"`.replaceAll("  ", " ")
+            textarea.val(new_copy_str);
+            textarea.select();
+            document.execCommand("copy");
+            textarea.val(copy_str);
+        });
+    });
+
+</script>
+
+</html>
